@@ -1,8 +1,14 @@
 package com.example.lab_week_08
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.work.Constraints
 import androidx.work.Data
 import androidx.work.NetworkType
@@ -16,6 +22,17 @@ class MainActivity : AppCompatActivity() {
     private val workManager by lazy {
         WorkManager.getInstance(this)
     }
+
+    private val requestPermissionLauncher =
+        registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { isGranted: Boolean ->
+            if (isGranted) {
+                launchNotificationService()
+            } else {
+                Toast.makeText(this, "Notification permission denied", Toast.LENGTH_SHORT).show()
+            }
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -62,8 +79,23 @@ class MainActivity : AppCompatActivity() {
             .observe(this) { info ->
                 if (info.state.isFinished) {
                     showResult("Second process is done")
+                    checkPermissionAndLaunchService()
                 }
             }
+    }
+
+    private fun checkPermissionAndLaunchService() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+                PackageManager.PERMISSION_GRANTED
+            ) {
+                launchNotificationService()
+            } else {
+                requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        } else {
+            launchNotificationService()
+        }
     }
 
     private fun getIdInputData(IdKey: String, IdValue: String) =
@@ -73,5 +105,24 @@ class MainActivity : AppCompatActivity() {
 
     private fun showResult(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+    }
+
+    private fun launchNotificationService() {
+        NotificationService.trackingCompletion.observe(
+            this
+        ) { Id ->
+            showResult("Process for Notification Channel ID $Id is done!")
+        }
+        val serviceIntent = Intent(
+            this,
+            NotificationService::class.java
+        ).apply {
+            putExtra(EXTRA_ID, "001")
+        }
+        ContextCompat.startForegroundService(this, serviceIntent)
+    }
+
+    companion object {
+        const val EXTRA_ID = "Id"
     }
 }
