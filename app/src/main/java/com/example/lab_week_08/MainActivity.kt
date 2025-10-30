@@ -16,6 +16,7 @@ import androidx.work.OneTimeWorkRequest
 import androidx.work.WorkManager
 import com.example.lab_week_08.worker.FirstWorker
 import com.example.lab_week_08.worker.SecondWorker
+import com.example.lab_week_08.worker.ThirdWorker
 
 class MainActivity : AppCompatActivity() {
 
@@ -23,12 +24,18 @@ class MainActivity : AppCompatActivity() {
         WorkManager.getInstance(this)
     }
 
+    private var serviceToLaunch: Int = 0
+
     private val requestPermissionLauncher =
         registerForActivityResult(
             ActivityResultContracts.RequestPermission()
         ) { isGranted: Boolean ->
             if (isGranted) {
-                launchNotificationService()
+                if (serviceToLaunch == 1) {
+                    launchNotificationService()
+                } else if (serviceToLaunch == 2) {
+                    launchSecondNotificationService()
+                }
             } else {
                 Toast.makeText(this, "Notification permission denied", Toast.LENGTH_SHORT).show()
             }
@@ -43,6 +50,7 @@ class MainActivity : AppCompatActivity() {
             .build()
 
         val Id = "001"
+        val Id2 = "002"
 
         val firstRequest = OneTimeWorkRequest
             .Builder(FirstWorker::class.java)
@@ -64,8 +72,19 @@ class MainActivity : AppCompatActivity() {
                 )
             ).build()
 
+        val thirdRequest = OneTimeWorkRequest
+            .Builder(ThirdWorker::class.java)
+            .setConstraints(networkConstraints)
+            .setInputData(
+                getIdInputData(
+                    ThirdWorker
+                        .INPUT_DATA_ID, Id2
+                )
+            ).build()
+
         workManager.beginWith(firstRequest)
             .then(secondRequest)
+            .then(thirdRequest)
             .enqueue()
 
         workManager.getWorkInfoByIdLiveData(firstRequest.id)
@@ -82,9 +101,18 @@ class MainActivity : AppCompatActivity() {
                     checkPermissionAndLaunchService()
                 }
             }
+
+        workManager.getWorkInfoByIdLiveData(thirdRequest.id)
+            .observe(this) { info ->
+                if (info.state.isFinished) {
+                    showResult("Third process is done")
+                    checkPermissionAndLaunchSecondService()
+                }
+            }
     }
 
     private fun checkPermissionAndLaunchService() {
+        serviceToLaunch = 1
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
                 PackageManager.PERMISSION_GRANTED
@@ -95,6 +123,21 @@ class MainActivity : AppCompatActivity() {
             }
         } else {
             launchNotificationService()
+        }
+    }
+
+    private fun checkPermissionAndLaunchSecondService() {
+        serviceToLaunch = 2
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+                PackageManager.PERMISSION_GRANTED
+            ) {
+                launchSecondNotificationService()
+            } else {
+                requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        } else {
+            launchSecondNotificationService()
         }
     }
 
@@ -117,12 +160,23 @@ class MainActivity : AppCompatActivity() {
             this,
             NotificationService::class.java
         ).apply {
-            putExtra(EXTRA_ID, "001")
+            putExtra(NotificationService.EXTRA_ID, "001")
         }
         ContextCompat.startForegroundService(this, serviceIntent)
     }
 
-    companion object {
-        const val EXTRA_ID = "Id"
+    private fun launchSecondNotificationService() {
+        SecondNotificationService.trackingCompletion.observe(
+            this
+        ) { Id ->
+            showResult("Process for Notification Channel ID $Id is done!")
+        }
+        val serviceIntent = Intent(
+            this,
+            SecondNotificationService::class.java
+        ).apply {
+            putExtra(SecondNotificationService.EXTRA_ID, "002")
+        }
+        ContextCompat.startForegroundService(this, serviceIntent)
     }
 }
