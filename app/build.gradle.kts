@@ -4,13 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.lab_week_8"
-    compileSdk {
-        version = release(36)
-    }
+    namespace = "com.example.lab_week_08"
+    compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.lab_week_8"
+        applicationId = "com.example.lab_week_08"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
@@ -38,6 +36,7 @@ android {
 }
 
 dependencies {
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
@@ -46,4 +45,5 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+    implementation("androidx.work:work-runtime:2.8.0")
 }
